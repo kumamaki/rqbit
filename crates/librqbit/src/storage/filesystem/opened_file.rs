@@ -25,7 +25,11 @@ impl OurFileExt for File {
         // write the two buffers one after the other instead.
         match nix::libc::off_t::try_from(offset) {
             Ok(offset) => {
-                nix::sys::uio::pwritev(self, &bufs, offset).context("error calling pwritev")
+                // As io::Error, like every other write path, so callers can read
+                // the kind (a full disk is StorageFull) without naming nix.
+                nix::sys::uio::pwritev(self, &bufs, offset)
+                    .map_err(std::io::Error::from)
+                    .context("error calling pwritev")
             }
             Err(_) => pwrite_all_unvectored(self, offset, bufs),
         }
